@@ -36,7 +36,7 @@
   <div class="panel-head">
     <span class="microlabel">Scenes</span>
     <span class="spacer"></span>
-    <button class="btn" onclick={addScene}>＋</button>
+    <button class="btn" onclick={addScene} aria-label="add scene">＋</button>
   </div>
 
   <div class="list">
@@ -49,10 +49,10 @@
         onkeydown={(e) => e.key === 'Enter' && recall(i)}
       >
         <span class="idx mono">{i + 1}</span>
-        <input class="name" value={scene.name} onchange={(e) => rename(scene.id, e)} onclick={(e) => e.stopPropagation()} />
+        <input class="name" value={scene.name} onchange={(e) => rename(scene.id, e)} onclick={(e) => e.stopPropagation()} aria-label="scene name" />
         <span class="count mono">{scene.layers.length}L</span>
         {#if p.scenes.length > 1}
-          <button class="x" onclick={(e) => removeScene(scene.id, e)} title="delete">×</button>
+          <button class="x" onclick={(e) => removeScene(scene.id, e)} title="delete" aria-label="delete scene">×</button>
         {/if}
       </div>
     {/each}
@@ -100,6 +100,7 @@
     cursor: pointer; transition: border-color .1s, background .1s;
   }
   .scene:hover { background: var(--bg-3); }
+  .scene:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
   .scene.active { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 8%, var(--bg-2)); }
   .scene.incoming { border-color: var(--warn); animation: blink-warn 0.8s infinite; }
   .idx { color: var(--tx-3); font-size: 11px; width: 14px; }
@@ -109,14 +110,19 @@
   }
   .name:focus { outline: none; color: var(--acc); }
   .count { color: var(--tx-3); font-size: 10px; }
-  .x { background: none; border: none; color: var(--tx-3); cursor: pointer; font-size: 13px; padding: 0 2px; }
-  .x:hover { color: var(--hot); }
+  .x {
+    background: none; border: none; color: var(--tx-2); cursor: pointer; font-size: 16px;
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; flex: none;
+    border-radius: var(--radius-sm);
+  }
+  .x:hover { background: var(--bg-3); color: var(--hot); }
+  .x:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
   .foot { border-top: 1px solid var(--stroke); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .seg { display: flex; border: 1px solid var(--stroke); border-radius: var(--radius-sm); overflow: hidden; }
   .segbtn {
     background: var(--bg-2); border: none; color: var(--tx-2);
-    padding: 3px 7px; font-size: 11px; cursor: pointer;
+    padding: 6px 11px; font-size: 12px; cursor: pointer; min-height: 30px;
   }
   .segbtn + .segbtn { border-left: 1px solid var(--stroke); }
   .segbtn.on { background: var(--acc-dim); color: var(--acc); }

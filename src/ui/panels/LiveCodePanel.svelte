@@ -11,12 +11,18 @@
   import { findShader } from '../catalog.svelte';
   import { getRenderer } from '../renderer-ref';
   import { getLiveCodeApi } from '../livecode-ref';
-  import { runLiveScript } from '../../livecode';
-  import {
-    createShaderEditor, createScriptEditor,
-    type ShaderEditorHost, type ScriptEditorHost,
-  } from '../../editor/monaco-host';
+  import { runLiveScript, LIVECODE_EXAMPLES } from '../../livecode';
+  import type { ShaderEditorHost, ScriptEditorHost } from '../../editor/monaco-host';
   import type { ShaderDiagnostic, ShaderParamDef } from '../../core/types';
+
+  // Monaco(+JS言語コントリビューション+ワーカー)はビルド後の最大チャンクを
+  // 大きく占めるため、パネルを一度も開かないセッションでは読み込まない。
+  // モジュールスコープでキャッシュし、SHADER/SCRIPT両方のeffectから共有する。
+  let monacoHostPromise: Promise<typeof import('../../editor/monaco-host')> | null = null;
+  function loadMonacoHost() {
+    monacoHostPromise ??= import('../../editor/monaco-host');
+    return monacoHostPromise;
+  }
 
   const p = $derived(project());
   const scene = $derived(p.scenes[p.activeSceneIndex]);
@@ -25,6 +31,15 @@
   // Monacoインスタンスが破棄・再生成されて入力中のテキストが消えるのを防ぐため、
   // 「今どのレイヤーを編集対象にすべきか」だけを安定した依存として切り出す。
   const targetLayerId = $derived(layer?.id ?? null);
+  // SHADERタブのAPIリファレンス表示用(表示専用のリアクティブ読み取りなので、
+  // Monacoインスタンスのライフサイクルを管理する$effectとは違い、pを直接読んでも問題ない)。
+  const shaderParamNames = $derived.by(() => {
+    if (!layer) return [];
+    const custom = p.customShaders[layer.shaderKey];
+    if (custom) return Object.keys(custom.params);
+    const def = findShader(layer.shaderKey);
+    return def ? Object.keys(def.params) : [];
+  });
 
   let shaderContainer: HTMLDivElement | undefined = $state();
   let scriptContainer: HTMLDivElement | undefined = $state();
@@ -32,6 +47,7 @@
   let scriptHost: ScriptEditorHost | null = null;
   let diagnostics = $state<ShaderDiagnostic[]>([]);
   let scriptError = $state<string | null>(null);
+  let scriptWarnings = $state<string[]>([]);
   let customKey: string | null = null;
   let flash = $state<'ok' | 'error' | null>(null);
   let validateSeq = 0;
@@ -78,24 +94,31 @@
     if (!resolved) return;
     customKey = resolved.key;
 
-    shaderHost = createShaderEditor(shaderContainer, {
-      initialValue: resolved.wgsl,
-      onChange: (value) => {
-        if (!customKey) return;
-        const existing = p.customShaders[customKey];
-        dispatch({
-          type: 'shader/saveCustom',
-          key: customKey,
-          name: existing?.name ?? customKey,
-          wgsl: value,
-          params: existing ? $state.snapshot(existing.params) : {},
-        }, { undoable: true, coalesceKey: `shader:${customKey}` });
-        void runShaderValidation(value, existing?.params ?? {});
-      },
+    // Monacoは動的import。effectが依存変化で再実行/破棄された後に解決した場合、
+    // stale なコールバックがエディタを作ってしまわないよう cancelled で防ぐ。
+    let cancelled = false;
+    void loadMonacoHost().then(({ createShaderEditor }) => {
+      if (cancelled || !shaderContainer) return;
+      shaderHost = createShaderEditor(shaderContainer, {
+        initialValue: resolved.wgsl,
+        onChange: (value) => {
+          if (!customKey) return;
+          const existing = p.customShaders[customKey];
+          dispatch({
+            type: 'shader/saveCustom',
+            key: customKey,
+            name: existing?.name ?? customKey,
+            wgsl: value,
+            params: existing ? $state.snapshot(existing.params) : {},
+          }, { undoable: true, coalesceKey: `shader:${customKey}` });
+          void runShaderValidation(value, existing?.params ?? {});
+        },
+      });
+      void runShaderValidation(resolved.wgsl, untrack(() => p.customShaders[customKey!]?.params ?? {}));
     });
-    void runShaderValidation(resolved.wgsl, untrack(() => p.customShaders[customKey!]?.params ?? {}));
 
     return () => {
+      cancelled = true;
       shaderHost?.dispose();
       shaderHost = null;
     };
@@ -105,8 +128,11 @@
   function evalScript(code: string) {
     const result = runLiveScript(code, getLiveCodeApi());
     scriptError = result.error ?? null;
+    scriptWarnings = result.warnings;
     scriptHost?.setError(scriptError);
-    triggerFlash(result.ok ? 'ok' : 'error');
+    // エラーは無くても警告がある場合(例: layer(9)が存在しない)は視覚的に区別できるよう
+    // errorフラッシュを使う(黙って"OK"扱いにすると気づかれないため)。
+    triggerFlash(result.ok && result.warnings.length === 0 ? 'ok' : 'error');
   }
 
   $effect(() => {
@@ -116,15 +142,21 @@
       return;
     }
 
-    scriptHost = createScriptEditor(scriptContainer, {
-      initialValue: untrack(() => p.liveScript),
-      onChange: (value) => {
-        dispatch({ type: 'app/setLiveScript', script: value });
-      },
-      onEval: evalScript,
+    let cancelled = false;
+    const initialValue = untrack(() => p.liveScript);
+    void loadMonacoHost().then(({ createScriptEditor }) => {
+      if (cancelled || !scriptContainer) return;
+      scriptHost = createScriptEditor(scriptContainer, {
+        initialValue,
+        onChange: (value) => {
+          dispatch({ type: 'app/setLiveScript', script: value });
+        },
+        onEval: evalScript,
+      });
     });
 
     return () => {
+      cancelled = true;
       scriptHost?.dispose();
       scriptHost = null;
     };
@@ -132,6 +164,18 @@
 
   function close() { modals.livecode = false; }
   function selectTab(tab: 'shader' | 'script') { modals.livecodeTab = tab; }
+
+  function loadExample(e: Event) {
+    const index = Number((e.target as HTMLSelectElement).value);
+    (e.target as HTMLSelectElement).value = '';
+    const example = LIVECODE_EXAMPLES[index];
+    if (!example || !scriptHost) return;
+    scriptHost.setValue(example.code);
+    dispatch({ type: 'app/setLiveScript', script: example.code });
+    scriptError = null;
+    scriptWarnings = [];
+    scriptHost.setError(null);
+  }
 </script>
 
 {#if modals.livecode}
@@ -145,8 +189,16 @@
         <button class="tab" class:on={modals.livecodeTab === 'script'} onclick={() => selectTab('script')}>SCRIPT</button>
       </div>
       <span class="spacer"></span>
-      {#if modals.livecodeTab === 'script'}<span class="hint mono">⌘⏎ eval</span>{/if}
-      <button class="btn" onclick={close}>×</button>
+      {#if modals.livecodeTab === 'script'}
+        <select class="examples" onchange={loadExample} title="サンプルスクリプトを読み込む">
+          <option value="">Load Example…</option>
+          {#each LIVECODE_EXAMPLES as ex, i (i)}
+            <option value={i}>{ex.name}</option>
+          {/each}
+        </select>
+        <span class="hint mono">⌘⏎ eval</span>
+      {/if}
+      <button class="btn" onclick={close} title="Close" aria-label="close live code panel">×</button>
     </div>
 
     <div class="body">
@@ -159,19 +211,43 @@
           {#if diagnostics.length === 0}
             <div class="ok">エラーなし — コンパイル成功</div>
           {:else}
+            <div class="hint">コンパイルエラー中は直前の描画がそのまま表示され続けます。</div>
             {#each diagnostics as d, i (i)}
               <div class="diag {d.severity}"><span class="mono">L{d.line}:{d.column}</span> {d.message}</div>
             {/each}
           {/if}
+          <div class="apidoc">
+            <div class="microlabel">Globals</div>
+            <pre class="mono">G.time / G.resolution
+G.bass / G.mid / G.treble
+G.bpm / G.beat / G.phase</pre>
+          </div>
+          <div class="apidoc">
+            <div class="microlabel">Params (このレイヤー)</div>
+            {#if shaderParamNames.length > 0}
+              <pre class="mono">{shaderParamNames.map((n) => `P.${n}`).join('\n')}</pre>
+            {:else}
+              <div class="hint">パラメータなし</div>
+            {/if}
+          </div>
+          <div class="apidoc">
+            <div class="microlabel">Texture / Lib</div>
+            <pre class="mono">sampleInput(uv) / sampleFeedback(uv)
+hash21 / noise2 / fbm2
+rotate2d / hsv2rgb / smin / sdBox3</pre>
+          </div>
         </div>
       {:else}
         <div class="side">
           <div class="microlabel">Output</div>
           {#if scriptError}
             <div class="diag error">{scriptError}</div>
-          {:else}
+          {:else if scriptWarnings.length === 0}
             <div class="ok">OK</div>
           {/if}
+          {#each scriptWarnings as w, i (i)}
+            <div class="diag warning">{w}</div>
+          {/each}
           <div class="apidoc">
             <div class="microlabel">API</div>
             <pre class="mono">layer(i).blend('ADD')
@@ -220,6 +296,7 @@ blackout(true)</pre>
   .tab.on { color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
   .spacer { flex: 1; }
   .hint { color: var(--tx-3); font-size: 10px; }
+  .examples { font-size: 10px; padding: 2px 6px; max-width: 160px; }
   .body { flex: 1; display: flex; min-height: 0; }
   .editorhost { flex: 1; min-width: 0; }
   .editorhost.hidden { display: none; }
@@ -231,7 +308,7 @@ blackout(true)</pre>
   .diag { font-size: 11px; color: var(--tx-2); line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
   .diag.error { color: var(--hot); }
   .diag.warning { color: var(--warn); }
-  .diag .mono { color: var(--tx-3); margin-right: 4px; }
+  .diag .mono { color: var(--tx-2); margin-right: 4px; }
   .apidoc { margin-top: 4px; }
   .apidoc pre { font-size: 10px; color: var(--tx-3); line-height: 1.6; white-space: pre-wrap; margin: 4px 0 0; }
 </style>

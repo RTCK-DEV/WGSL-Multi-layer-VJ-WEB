@@ -111,6 +111,10 @@
     }
   }
 
+  function sourceEquals(a: MidiSource, b: MidiSource): boolean {
+    return a.kind === b.kind && a.channel === b.channel && a.number === b.number;
+  }
+
   function saveEdit() {
     if (!editing || !editing.source) { toast('MIDI信号をLearnしてください', 'warn'); return; }
     // editing は $state のリアクティブプロキシなので、Immer に渡す前にプレーンオブジェクトへ
@@ -122,15 +126,20 @@
       behavior: snapshot.behavior,
       action: buildAction(snapshot),
     };
+    const conflict = p.midi.bindings.find((b) => b.id !== binding.id && sourceEquals(b.source, binding.source));
     dispatch(
       snapshot.bindingId ? { type: 'midi/updateBinding', binding } : { type: 'midi/addBinding', binding },
       { undoable: true },
     );
+    if (conflict) {
+      toast(`${formatSource(binding.source)} は既に「${formatAction(conflict.action)}」で使われています(両方発火します)`, 'warn');
+    }
     editing = null;
   }
 
-  function removeBinding(id: string) {
-    dispatch({ type: 'midi/removeBinding', bindingId: id }, { undoable: true });
+  function removeBinding(binding: MidiBinding) {
+    dispatch({ type: 'midi/removeBinding', bindingId: binding.id }, { undoable: true });
+    toast(`バインディング「${formatAction(binding.action)}」を削除しました(⌘Zで復元)`);
   }
 
   function formatSource(s: MidiSource): string {
@@ -217,7 +226,7 @@
     <div class="panel-head">
       <span class="microlabel">MIDI Configuration</span>
       <span class="spacer"></span>
-      <button class="btn" onclick={onclose}>ESC</button>
+      <button class="btn" onclick={onclose} title="Close (Esc)" aria-label="close">ESC</button>
     </div>
 
     <div class="tabs">
@@ -298,8 +307,8 @@
                 <td>{formatAction(b.action)}</td>
                 <td class="mono">{actionSpec(b.action.type).continuous ? '—' : b.behavior}</td>
                 <td class="rowbtns">
-                  <button class="mini" onclick={() => startEdit(b)}>EDIT</button>
-                  <button class="mini del" onclick={() => removeBinding(b.id)}>✕</button>
+                  <button class="mini" onclick={() => startEdit(b)} aria-label="edit binding">EDIT</button>
+                  <button class="mini del" onclick={() => removeBinding(b)} title="delete" aria-label="delete binding">✕</button>
                 </td>
               </tr>
             {/each}
@@ -365,6 +374,7 @@
             <div class="scrow"><span class="mono">⌘Z</span><span>Undo</span></div>
             <div class="scrow"><span class="mono">⇧⌘Z</span><span>Redo</span></div>
             <div class="scrow"><span class="mono">B</span><span>Blackout Toggle</span></div>
+            <div class="scrow"><span class="mono">⌘⏎</span><span>Live Code: Eval Script</span></div>
           </div>
         </div>
       {/if}
@@ -399,11 +409,11 @@
   .erow.hint, .hint { color: var(--tx-3); font-size: 11px; }
   .learned { color: var(--acc); }
   .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .tbl th { text-align: left; color: var(--tx-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 8px; border-bottom: 1px solid var(--stroke); }
+  .tbl th { text-align: left; color: var(--tx-2); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 8px; border-bottom: 1px solid var(--stroke); }
   .tbl td { padding: 6px 8px; border-bottom: 1px solid var(--stroke); }
   .empty { text-align: center; color: var(--tx-3); padding: 16px !important; }
-  .rowbtns { display: flex; gap: 4px; }
-  .mini { background: var(--bg-3); border: 1px solid var(--stroke); border-radius: var(--radius-sm); color: var(--tx-2); font-size: 10px; padding: 2px 6px; cursor: pointer; }
+  .rowbtns { display: flex; gap: 6px; }
+  .mini { background: var(--bg-3); border: 1px solid var(--stroke); border-radius: var(--radius-sm); color: var(--tx-2); font-size: 12px; padding: 6px 11px; min-height: 30px; cursor: pointer; }
   .mini.del:hover { border-color: var(--hot); color: var(--hot); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tx-3); display: inline-block; }
   .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }

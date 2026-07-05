@@ -67,7 +67,8 @@ html, body {
   appearance: none; border: 1px solid var(--stroke);
   background: var(--bg-2); color: var(--tx-2);
   border-radius: var(--radius-sm);
-  padding: 5px 10px; font: inherit; font-size: 12px;
+  padding: 7px 13px; font: inherit; font-size: 12px;
+  min-height: 30px;
   cursor: pointer; line-height: 1.2;
   transition: background .1s, border-color .1s, color .1s;
 }
@@ -82,7 +83,8 @@ html, body {
 select {
   appearance: none; border: 1px solid var(--stroke);
   background: var(--bg-3); color: var(--tx-1);
-  border-radius: var(--radius-sm); padding: 4px 8px;
+  border-radius: var(--radius-sm); padding: 6px 10px;
+  min-height: 30px;
   font: inherit; font-size: 12px; cursor: pointer;
 }
 select:focus { outline: none; border-color: var(--acc); }

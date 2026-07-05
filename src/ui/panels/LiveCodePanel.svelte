@@ -12,11 +12,17 @@
   import { getRenderer } from '../renderer-ref';
   import { getLiveCodeApi } from '../livecode-ref';
   import { runLiveScript, LIVECODE_EXAMPLES } from '../../livecode';
-  import {
-    createShaderEditor, createScriptEditor,
-    type ShaderEditorHost, type ScriptEditorHost,
-  } from '../../editor/monaco-host';
+  import type { ShaderEditorHost, ScriptEditorHost } from '../../editor/monaco-host';
   import type { ShaderDiagnostic, ShaderParamDef } from '../../core/types';
+
+  // Monaco(+JS言語コントリビューション+ワーカー)はビルド後の最大チャンクを
+  // 大きく占めるため、パネルを一度も開かないセッションでは読み込まない。
+  // モジュールスコープでキャッシュし、SHADER/SCRIPT両方のeffectから共有する。
+  let monacoHostPromise: Promise<typeof import('../../editor/monaco-host')> | null = null;
+  function loadMonacoHost() {
+    monacoHostPromise ??= import('../../editor/monaco-host');
+    return monacoHostPromise;
+  }
 
   const p = $derived(project());
   const scene = $derived(p.scenes[p.activeSceneIndex]);
@@ -88,24 +94,31 @@
     if (!resolved) return;
     customKey = resolved.key;
 
-    shaderHost = createShaderEditor(shaderContainer, {
-      initialValue: resolved.wgsl,
-      onChange: (value) => {
-        if (!customKey) return;
-        const existing = p.customShaders[customKey];
-        dispatch({
-          type: 'shader/saveCustom',
-          key: customKey,
-          name: existing?.name ?? customKey,
-          wgsl: value,
-          params: existing ? $state.snapshot(existing.params) : {},
-        }, { undoable: true, coalesceKey: `shader:${customKey}` });
-        void runShaderValidation(value, existing?.params ?? {});
-      },
+    // Monacoは動的import。effectが依存変化で再実行/破棄された後に解決した場合、
+    // stale なコールバックがエディタを作ってしまわないよう cancelled で防ぐ。
+    let cancelled = false;
+    void loadMonacoHost().then(({ createShaderEditor }) => {
+      if (cancelled || !shaderContainer) return;
+      shaderHost = createShaderEditor(shaderContainer, {
+        initialValue: resolved.wgsl,
+        onChange: (value) => {
+          if (!customKey) return;
+          const existing = p.customShaders[customKey];
+          dispatch({
+            type: 'shader/saveCustom',
+            key: customKey,
+            name: existing?.name ?? customKey,
+            wgsl: value,
+            params: existing ? $state.snapshot(existing.params) : {},
+          }, { undoable: true, coalesceKey: `shader:${customKey}` });
+          void runShaderValidation(value, existing?.params ?? {});
+        },
+      });
+      void runShaderValidation(resolved.wgsl, untrack(() => p.customShaders[customKey!]?.params ?? {}));
     });
-    void runShaderValidation(resolved.wgsl, untrack(() => p.customShaders[customKey!]?.params ?? {}));
 
     return () => {
+      cancelled = true;
       shaderHost?.dispose();
       shaderHost = null;
     };
@@ -129,15 +142,21 @@
       return;
     }
 
-    scriptHost = createScriptEditor(scriptContainer, {
-      initialValue: untrack(() => p.liveScript),
-      onChange: (value) => {
-        dispatch({ type: 'app/setLiveScript', script: value });
-      },
-      onEval: evalScript,
+    let cancelled = false;
+    const initialValue = untrack(() => p.liveScript);
+    void loadMonacoHost().then(({ createScriptEditor }) => {
+      if (cancelled || !scriptContainer) return;
+      scriptHost = createScriptEditor(scriptContainer, {
+        initialValue,
+        onChange: (value) => {
+          dispatch({ type: 'app/setLiveScript', script: value });
+        },
+        onEval: evalScript,
+      });
     });
 
     return () => {
+      cancelled = true;
       scriptHost?.dispose();
       scriptHost = null;
     };

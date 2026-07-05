@@ -563,6 +563,15 @@ export class Compositor {
         this.layerStates.delete(layerId);
       }
     }
+
+    // モジュレータの連続失敗カウンタも、レイヤーが消えたら一緒に捨てる
+    // (でないと消えたレイヤーのキーがセッション中ずっと残り続ける)。
+    for (const key of this.modulatorFailureCounts.keys()) {
+      const layerId = key.slice(0, key.lastIndexOf(':'));
+      if (!live.has(layerId)) {
+        this.modulatorFailureCounts.delete(key);
+      }
+    }
   }
 
   private ensureLayerState(layerId: string, shader: ShaderModuleDef, values: Record<string, number | number[]>): LayerGpuState {

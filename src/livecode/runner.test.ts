@@ -2,14 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { runLiveScript } from './runner';
 import type { LiveCodeApi } from './api';
 
-function createSpyApi() {
+function createSpyApi(options: { warnOnLayerIndex?: number } = {}) {
   const calls: string[] = [];
+  const warnings: string[] = [];
   const layerHandle: Record<string, unknown> = {};
   layerHandle.blend = (mode: string) => { calls.push(`blend:${mode}`); return layerHandle; };
   layerHandle.opacity = (v: unknown) => { calls.push(`opacity:${String(v)}`); return layerHandle; };
 
   const api: LiveCodeApi = {
-    layer: (index: number) => { calls.push(`layer:${index}`); return layerHandle as never; },
+    layer: (index: number) => {
+      calls.push(`layer:${index}`);
+      if (index === options.warnOnLayerIndex) {
+        warnings.push(`layer(${index}) は現在のシーンに存在しません(レイヤー数: 1)`);
+      }
+      return layerHandle as never;
+    },
     scene: {
       next: () => calls.push('scene.next'),
       prev: () => calls.push('scene.prev'),
@@ -21,6 +28,7 @@ function createSpyApi() {
       set: () => calls.push('bpm.set'),
     },
     blackout: () => calls.push('blackout'),
+    drainWarnings: () => warnings.splice(0, warnings.length),
   };
   return { api, calls };
 }
@@ -31,7 +39,7 @@ describe('runLiveScript', () => {
 
     const result = runLiveScript("layer(0).blend('ADD').opacity(0.5); bpm.tap();", api);
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, warnings: [] });
     expect(calls).toEqual(['layer:0', 'blend:ADD', 'opacity:0.5', 'bpm.tap']);
   });
 
@@ -49,6 +57,15 @@ describe('runLiveScript', () => {
 
     const result = runLiveScript('throw new Error("boom")', api);
 
-    expect(result).toEqual({ ok: false, error: 'boom' });
+    expect(result).toEqual({ ok: false, error: 'boom', warnings: [] });
+  });
+
+  it('surfaces warnings collected during the run (e.g. a non-existent layer index)', () => {
+    const { api } = createSpyApi({ warnOnLayerIndex: 9 });
+
+    const result = runLiveScript("layer(9).blend('ADD');", api);
+
+    expect(result.ok).toBe(true);
+    expect(result.warnings).toEqual(['layer(9) は現在のシーンに存在しません(レイヤー数: 1)']);
   });
 });

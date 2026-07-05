@@ -35,12 +35,6 @@ export interface LiveCodeApi {
     set(value: number): void;
   };
   blackout(on: boolean): void;
-  /**
-   * layer(index) が存在しないレイヤーを指した場合などに溜まる警告を取り出してクリアする。
-   * no-op自体は例外を投げない設計だが、「コードは実行できたのに何も起きない」という
-   * サイレントな混乱を避けるため、UI側で表示できるようにする。
-   */
-  drainWarnings(): string[];
 }
 
 /** opacity はシェーダーパラメータではなくレイヤー自体のフィールドなので専用キーで管理する。 */
@@ -57,20 +51,12 @@ interface ResolvedLayer {
 
 export function createLiveCodeApi(deps: LiveCodeApiDeps): LiveCodeApi {
   const { store, bpmClock, modulators } = deps;
-  const warnings: string[] = [];
-
-  function warn(message: string): void {
-    warnings.push(message);
-  }
 
   function resolveLayer(index: number): ResolvedLayer | null {
     const state = store.getState();
     const scene = state.scenes[state.activeSceneIndex];
     const layer = scene?.layers[index];
-    if (!scene || !layer) {
-      warn(`layer(${index}) は現在のシーンに存在しません(レイヤー数: ${scene?.layers.length ?? 0})`);
-      return null;
-    }
+    if (!scene || !layer) return null;
     return { sceneId: scene.id, layerId: layer.id };
   }
 
@@ -182,10 +168,7 @@ export function createLiveCodeApi(deps: LiveCodeApiDeps): LiveCodeApi {
       },
       recall(index, opts) {
         const state = store.getState();
-        if (index < 0 || index >= state.scenes.length) {
-          warn(`scene.recall(${index}) は存在しないシーンです(シーン数: ${state.scenes.length})`);
-          return;
-        }
+        if (index < 0 || index >= state.scenes.length) return;
         store.dispatch({
           type: 'scene/crossfadeTo', index,
           durationBeats: opts?.beats ?? state.crossfadeBeats, startBeat: bpmClock.getFrame().beat,
@@ -209,10 +192,6 @@ export function createLiveCodeApi(deps: LiveCodeApiDeps): LiveCodeApi {
 
     blackout(on) {
       store.dispatch({ type: 'app/setBlackout', blackout: on });
-    },
-
-    drainWarnings() {
-      return warnings.splice(0, warnings.length);
     },
   };
 }

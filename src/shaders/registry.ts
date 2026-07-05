@@ -1,5 +1,4 @@
 import type { ShaderModuleDef } from '../core/types';
-import blankCanvas from './blank-canvas';
 import alienBio from './alien-bio';
 import crystalKifs from './crystal-kifs';
 import cyberDystopia from './cyber-dystopia';
@@ -12,7 +11,6 @@ import webcamInput from './webcam-input';
 import wormholeX from './wormhole-x';
 
 export const BUILTIN_SHADERS: ShaderModuleDef[] = [
-  blankCanvas,
   crystalKifs,
   liquidGold,
   cyberDystopia,

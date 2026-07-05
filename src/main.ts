@@ -6,7 +6,7 @@ import { mount } from 'svelte';
 import './ui/theme.css';
 import App from './app/App.svelte';
 import { createStore } from './core/store/store';
-import { createDemoProject } from './core/store/initial';
+import { createInitialProject } from './core/store/initial';
 import { loadAutosave } from './persistence/db';
 import { attachAutosave } from './persistence/autosave';
 import { exportProject, importProject } from './persistence/file-io';
@@ -59,7 +59,7 @@ async function boot(): Promise<void> {
 
   // --- store ---
   const saved = await loadAutosave().catch(() => null);
-  const store = createStore(saved ?? createDemoProject(), { resolveShaderDefaults });
+  const store = createStore(saved ?? createInitialProject(), { resolveShaderDefaults });
   attachAutosave(store);
   connectStore(store);
 

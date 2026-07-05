@@ -131,7 +131,7 @@ describe('createLiveCodeApi', () => {
     expect(store.getState().scenes[0]!.layers[0]!.muted).toBe(false);
   });
 
-  it('is a no-op for a layer index that does not exist, without throwing, but records a warning', () => {
+  it('is a no-op for a layer index that does not exist, without throwing', () => {
     const store = createMockStore();
     const api = createLiveCodeApi({ store, bpmClock: createMockBpmClock(), modulators: createLiveModulatorRegistry() });
 
@@ -139,19 +139,6 @@ describe('createLiveCodeApi', () => {
       api.layer(99).blend('ADD').opacity(0.5).mute().solo().param('x', 1).clear('x').clearAll();
     }).not.toThrow();
     expect(store.dispatched).toHaveLength(0);
-    expect(api.drainWarnings()).toEqual(['layer(99) は現在のシーンに存在しません(レイヤー数: 1)']);
-    // 一度取り出したら空になる
-    expect(api.drainWarnings()).toEqual([]);
-  });
-
-  it('records a warning when scene.recall targets a scene that does not exist', () => {
-    const store = createMockStore();
-    const api = createLiveCodeApi({ store, bpmClock: createMockBpmClock(), modulators: createLiveModulatorRegistry() });
-
-    api.scene.recall(5);
-
-    expect(store.dispatched).toHaveLength(0);
-    expect(api.drainWarnings()).toEqual(['scene.recall(5) は存在しないシーンです(シーン数: 1)']);
   });
 
   it('scene.recall dispatches a crossfadeTo using the project default beats when omitted', () => {

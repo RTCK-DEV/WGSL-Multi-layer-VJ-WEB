@@ -365,7 +365,6 @@
             <div class="scrow"><span class="mono">⌘Z</span><span>Undo</span></div>
             <div class="scrow"><span class="mono">⇧⌘Z</span><span>Redo</span></div>
             <div class="scrow"><span class="mono">B</span><span>Blackout Toggle</span></div>
-            <div class="scrow"><span class="mono">⌘⏎</span><span>Live Code: Eval Script</span></div>
           </div>
         </div>
       {/if}

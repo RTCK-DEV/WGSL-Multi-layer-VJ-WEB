@@ -128,6 +128,7 @@ export type Command =
   | { type: 'layer/remove'; sceneId: string; layerId: string }
   | { type: 'layer/move'; sceneId: string; from: number; to: number }
   | { type: 'layer/select'; layerId: string | null }
+  | { type: 'layer/rename'; sceneId: string; layerId: string; name: string }
   | { type: 'layer/setOpacity'; sceneId: string; layerId: string; value: number }
   | { type: 'layer/setBlend'; sceneId: string; layerId: string; blend: BlendMode }
   | { type: 'layer/setMuted'; sceneId: string; layerId: string; muted: boolean }

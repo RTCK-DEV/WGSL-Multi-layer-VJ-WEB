@@ -20,6 +20,10 @@
   });
 
   function select() { dispatch({ type: 'layer/select', layerId: layer.id }); }
+  function rename(e: Event) {
+    const name = (e.target as HTMLInputElement).value.trim();
+    if (name) dispatch({ type: 'layer/rename', sceneId, layerId: layer.id, name }, { undoable: true });
+  }
   function setOpacity(e: Event) {
     const value = Number((e.target as HTMLInputElement).value);
     dispatch(
@@ -61,7 +65,7 @@
   <div class="top">
     <canvas bind:this={canvasEl} width="96" height="64" class="thumb"></canvas>
     <div class="meta">
-      <div class="name" title={layer.name}>{layer.name}</div>
+      <input class="name" value={layer.name} title={layer.name} onchange={rename} onclick={(e) => e.stopPropagation()} />
       <div class="ord mono">#{index + 1}</div>
       <select value={layer.blend} onchange={setBlend} onclick={(e) => e.stopPropagation()}>
         {#each BLEND_MODES as b (b)}<option value={b}>{b}</option>{/each}
@@ -85,7 +89,7 @@
 
 <style>
   .card {
-    width: 210px; height: 100%;
+    width: 236px; height: 100%;
     display: flex; flex-direction: column; gap: 6px;
     background: var(--bg-2); border: 1px solid var(--stroke);
     border-radius: var(--radius); padding: 8px;
@@ -102,16 +106,22 @@
     border: 1px solid var(--stroke);
   }
   .meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-  .name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name {
+    font: inherit; font-size: 12px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: none; border: none; color: var(--tx-1); padding: 2px 0; width: 100%;
+  }
+  .name:focus { outline: none; color: var(--acc); }
   .ord { font-size: 10px; color: var(--tx-3); }
   .meta select { width: 100%; font-size: 10px; padding: 2px 4px; }
   .bottom { display: flex; align-items: center; gap: 6px; }
   .bottom input[type="range"] { flex: 1; }
-  .btns { display: flex; gap: 3px; }
+  .btns { display: flex; gap: 5px; }
   .mini {
-    width: 22px; height: 22px; font-size: 10px; font-weight: 700;
+    width: 30px; height: 30px; font-size: 12px; font-weight: 700;
     border: 1px solid var(--stroke); border-radius: var(--radius-sm);
     background: var(--bg-3); color: var(--tx-2); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
   .mini.m-on { border-color: var(--hot); color: var(--hot); background: color-mix(in srgb, var(--hot) 15%, var(--bg-3)); }
   .mini.s-on { border-color: var(--warn); color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, var(--bg-3)); }

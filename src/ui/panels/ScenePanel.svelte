@@ -109,14 +109,18 @@
   }
   .name:focus { outline: none; color: var(--acc); }
   .count { color: var(--tx-3); font-size: 10px; }
-  .x { background: none; border: none; color: var(--tx-3); cursor: pointer; font-size: 13px; padding: 0 2px; }
-  .x:hover { color: var(--hot); }
+  .x {
+    background: none; border: none; color: var(--tx-3); cursor: pointer; font-size: 16px;
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex: none;
+    border-radius: var(--radius-sm);
+  }
+  .x:hover { background: var(--bg-3); color: var(--hot); }
   .foot { border-top: 1px solid var(--stroke); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
   .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .seg { display: flex; border: 1px solid var(--stroke); border-radius: var(--radius-sm); overflow: hidden; }
   .segbtn {
     background: var(--bg-2); border: none; color: var(--tx-2);
-    padding: 3px 7px; font-size: 11px; cursor: pointer;
+    padding: 6px 11px; font-size: 12px; cursor: pointer; min-height: 30px;
   }
   .segbtn + .segbtn { border-left: 1px solid var(--stroke); }
   .segbtn.on { background: var(--acc-dim); color: var(--acc); }

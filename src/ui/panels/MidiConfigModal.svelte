@@ -403,8 +403,8 @@
   .tbl th { text-align: left; color: var(--tx-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 8px; border-bottom: 1px solid var(--stroke); }
   .tbl td { padding: 6px 8px; border-bottom: 1px solid var(--stroke); }
   .empty { text-align: center; color: var(--tx-3); padding: 16px !important; }
-  .rowbtns { display: flex; gap: 4px; }
-  .mini { background: var(--bg-3); border: 1px solid var(--stroke); border-radius: var(--radius-sm); color: var(--tx-2); font-size: 10px; padding: 2px 6px; cursor: pointer; }
+  .rowbtns { display: flex; gap: 6px; }
+  .mini { background: var(--bg-3); border: 1px solid var(--stroke); border-radius: var(--radius-sm); color: var(--tx-2); font-size: 12px; padding: 6px 11px; min-height: 30px; cursor: pointer; }
   .mini.del:hover { border-color: var(--hot); color: var(--hot); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tx-3); display: inline-block; }
   .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }

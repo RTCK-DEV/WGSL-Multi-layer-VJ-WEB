@@ -1,0 +1,129 @@
+/* ============================================================
+   VJ-GPU デザイントークン — 「暗所のコンソール」
+   暗いフロアで使う演奏機材。無彩色ベース+機能色アクセント。
+   ============================================================ */
+:root {
+  /* 背景階調 (深い→浅い) */
+  --bg-0: #07080a;      /* アプリ最深部・プレビュー周辺 */
+  --bg-1: #0c0e12;      /* パネル背景 */
+  --bg-2: #12151b;      /* カード */
+  --bg-3: #191d25;      /* ホバー・入力欄 */
+  --stroke: #232833;    /* 境界線 */
+  --stroke-strong: #323a49;
+
+  /* テキスト */
+  --tx-1: #e8ebf0;      /* 主要 */
+  --tx-2: #9aa3b2;      /* 副次 */
+  --tx-3: #5c6575;      /* 弱 */
+
+  /* 機能色 */
+  --acc: #33e0ff;       /* アクティブ・選択・フォーカス */
+  --acc-dim: #1a5f6e;
+  --hot: #ff3d81;       /* BLACKOUT・削除・録画 */
+  --warn: #ffb020;      /* MIDI Learn・注意 */
+  --ok: #3dffa0;        /* 接続良好・BPM点滅 */
+
+  /* meter gradient */
+  --meter-lo: #2fd4c2;
+  --meter-hi: #ffd23d;
+
+  --radius: 6px;
+  --radius-sm: 4px;
+
+  --font-ui: 'Inter', system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+
+  /* サイズ */
+  --header-h: 48px;
+  --scene-w: 216px;
+  --inspector-w: 280px;
+  --deck-h: 172px;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%;
+  background: var(--bg-0);
+  color: var(--tx-1);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+/* マイクロラベル(セクション見出し) */
+.microlabel {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+/* 数値表示は常に等幅 */
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* 基本ボタン */
+.btn {
+  appearance: none; border: 1px solid var(--stroke);
+  background: var(--bg-2); color: var(--tx-2);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px; font: inherit; font-size: 12px;
+  cursor: pointer; line-height: 1.2;
+  transition: background .1s, border-color .1s, color .1s;
+}
+.btn:hover { background: var(--bg-3); color: var(--tx-1); border-color: var(--stroke-strong); }
+.btn:active { transform: translateY(1px); }
+.btn.on { border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 10%, var(--bg-2)); }
+.btn.hot { border-color: var(--hot); color: var(--hot); }
+.btn.hot.on { background: color-mix(in srgb, var(--hot) 18%, var(--bg-2)); box-shadow: 0 0 12px color-mix(in srgb, var(--hot) 45%, transparent); }
+.btn.warn.on { border-color: var(--warn); color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--bg-2)); }
+
+/* select */
+select {
+  appearance: none; border: 1px solid var(--stroke);
+  background: var(--bg-3); color: var(--tx-1);
+  border-radius: var(--radius-sm); padding: 4px 8px;
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+select:focus { outline: none; border-color: var(--acc); }
+
+/* range: 水平フェーダー */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 22px; background: transparent; cursor: ew-resize;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--acc) 0%, var(--acc) var(--fill, 50%), var(--bg-3) var(--fill, 50%));
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px; height: 18px; margin-top: -7px;
+  border-radius: 3px; background: var(--tx-1);
+  border: 1px solid var(--stroke-strong);
+  box-shadow: 0 1px 3px rgba(0,0,0,.6);
+}
+input[type="range"]:focus { outline: none; }
+input[type="range"]:focus::-webkit-slider-thumb { border-color: var(--acc); }
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--stroke); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--stroke-strong); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* パネル共通 */
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.panel-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-bottom: 1px solid var(--stroke);
+  flex: none;
+}
+
+@keyframes pulse-ok { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+@keyframes blink-warn { 0%,100% { opacity: 1 } 50% { opacity: .4 } }

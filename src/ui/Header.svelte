@@ -50,8 +50,8 @@
   <div class="spacer"></div>
 
   <div class="group">
-    <button class="btn" onclick={undo} title="Undo (⌘Z)">↩</button>
-    <button class="btn" onclick={redo} title="Redo (⇧⌘Z)">↪</button>
+    <button class="btn" onclick={undo} title="Undo (⌘Z)" aria-label="undo">↩</button>
+    <button class="btn" onclick={redo} title="Redo (⇧⌘Z)" aria-label="redo">↪</button>
   </div>
 
   <button

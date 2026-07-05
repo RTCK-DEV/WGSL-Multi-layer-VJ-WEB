@@ -179,7 +179,7 @@
         </select>
         <span class="hint mono">⌘⏎ eval</span>
       {/if}
-      <button class="btn" onclick={close}>×</button>
+      <button class="btn" onclick={close} title="Close" aria-label="close live code panel">×</button>
     </div>
 
     <div class="body">
@@ -289,7 +289,7 @@ blackout(true)</pre>
   .diag { font-size: 11px; color: var(--tx-2); line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
   .diag.error { color: var(--hot); }
   .diag.warning { color: var(--warn); }
-  .diag .mono { color: var(--tx-3); margin-right: 4px; }
+  .diag .mono { color: var(--tx-2); margin-right: 4px; }
   .apidoc { margin-top: 4px; }
   .apidoc pre { font-size: 10px; color: var(--tx-3); line-height: 1.6; white-space: pre-wrap; margin: 4px 0 0; }
 </style>

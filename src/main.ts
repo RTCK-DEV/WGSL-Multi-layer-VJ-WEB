@@ -29,7 +29,7 @@ import { openOutputWindow } from './output/output-window';
 import { WebcamSource } from './video/webcam-source';
 import { createLiveModulatorRegistry } from './core/live-modulators';
 import { createLiveCodeApi } from './livecode';
-import type { FrameContext, ShaderModuleDef } from './core/types';
+import type { FrameContext, ProjectState, ShaderModuleDef } from './core/types';
 
 async function boot(): Promise<void> {
   const root = document.getElementById('app')!;
@@ -58,9 +58,15 @@ async function boot(): Promise<void> {
   };
 
   // --- store ---
-  const saved = await loadAutosave().catch(() => null);
+  const saved = await loadAutosave().catch((error) => {
+    console.error('Failed to load autosaved project', error);
+    toast('保存データを読み込めなかったため、新規プロジェクトを開始します', 'warn');
+    return null;
+  });
   const store = createStore(saved ?? createDemoProject(), { resolveShaderDefaults });
-  attachAutosave(store);
+  attachAutosave(store, {
+    onError: () => toast('自動保存に失敗しました(ストレージの空き容量やプライベートブラウジングをご確認ください)', 'warn'),
+  });
   connectStore(store);
 
   // --- engines ---
@@ -79,6 +85,10 @@ async function boot(): Promise<void> {
 
   // --- webcam ---
   const webcam = new WebcamSource();
+  webcam.onDisconnected(() => {
+    live.webcamActive = false;
+    toast('Webカメラが切断されました', 'warn');
+  });
 
   // --- ライブコーディング用モジュレータレジストリ ---
   // レンダラー(読み取り)とDSL API(書き込み)が同一インスタンスを共有する。
@@ -98,12 +108,32 @@ async function boot(): Promise<void> {
       const msg = e instanceof Error ? e.message : String(e);
       live.errorLog = [...live.errorLog.slice(-19), msg];
     },
+    onWarning: (message) => {
+      live.errorLog = [...live.errorLog.slice(-19), message];
+      toast(message, 'warn');
+    },
   });
   await renderer.init();
   setRenderer(renderer);
 
   // --- ライブコーディング DSL API ---
   setLiveCodeApi(createLiveCodeApi({ store, bpmClock, modulators }));
+
+  // --- レイヤー/シーン削除時のモジュレータ後始末 ---
+  // modulators は Immer/undo の外側にある独立レジストリなので、削除された
+  // レイヤーの変調を明示的にクリアしないと、後で同じIDのレイヤーがUndoで
+  // 復活した際に古い変調が意図せず再適用されてしまう。
+  let prevProjectState: ProjectState = store.getState();
+  store.subscribe((state, cmd) => {
+    if (cmd?.type === 'layer/remove') {
+      modulators.clearLayer(cmd.layerId);
+    }
+    if (cmd?.type === 'scene/remove') {
+      const removedScene = prevProjectState.scenes.find((s) => s.id === cmd.sceneId);
+      removedScene?.layers.forEach((l) => modulators.clearLayer(l.id));
+    }
+    prevProjectState = state;
+  });
 
   // --- MIDI ---
   const midi = createMidiSystem({

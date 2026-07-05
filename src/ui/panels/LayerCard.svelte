@@ -65,7 +65,7 @@
   <div class="top">
     <canvas bind:this={canvasEl} width="96" height="64" class="thumb"></canvas>
     <div class="meta">
-      <input class="name" value={layer.name} title={layer.name} onchange={rename} onclick={(e) => e.stopPropagation()} />
+      <input class="name" value={layer.name} title={layer.name} onchange={rename} onclick={(e) => e.stopPropagation()} aria-label="layer name" />
       <div class="ord mono">#{index + 1}</div>
       <select value={layer.blend} onchange={setBlend} onclick={(e) => e.stopPropagation()}>
         {#each BLEND_MODES as b (b)}<option value={b}>{b}</option>{/each}
@@ -79,10 +79,10 @@
       oninput={setOpacity} onclick={(e) => e.stopPropagation()}
     />
     <div class="btns">
-      <button class="mini" class:m-on={layer.muted} onclick={toggleMute} title="mute">M</button>
-      <button class="mini" class:s-on={layer.solo} onclick={toggleSolo} title="solo">S</button>
-      <button class="mini" onclick={openEditor} title="edit shader">✎</button>
-      <button class="mini del" onclick={remove} title="delete">✕</button>
+      <button class="mini" class:m-on={layer.muted} onclick={toggleMute} title="mute" aria-label="mute layer" aria-pressed={layer.muted}>M</button>
+      <button class="mini" class:s-on={layer.solo} onclick={toggleSolo} title="solo" aria-label="solo layer" aria-pressed={layer.solo}>S</button>
+      <button class="mini" onclick={openEditor} title="edit shader" aria-label="edit shader">✎</button>
+      <button class="mini del" onclick={remove} title="delete" aria-label="delete layer">✕</button>
     </div>
   </div>
 </div>
@@ -97,6 +97,7 @@
     transition: border-color .1s;
   }
   .card:hover { border-color: var(--stroke-strong); }
+  .card:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
   .card.selected { border-color: var(--acc); box-shadow: 0 0 0 1px var(--acc); }
   .card.muted .thumb { opacity: 0.25; }
   .top { display: flex; gap: 8px; min-height: 0; }

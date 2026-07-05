@@ -417,12 +417,14 @@ export class Compositor {
       state.packer.clearDirty();
     }
 
+    // inputTex(sampleInput)は常に「このレイヤーより下の合成結果」。feedbackTex(sampleFeedback,
+    // binding 3で常に別途渡している)と混同しないこと — 'feedback'種別を currentCompose ではなく
+    // textures.feedback にすり替えると、sampleInput/sampleFeedback が同一テクスチャを指すことになり、
+    // フィードバックシェーダーが新規映像を一切取り込めず永久に真っ黒になる。
     const inputTextureView =
-      entry.shader.kind === 'feedback'
-        ? textures.feedback.view
-        : entry.shader.kind === 'external'
-          ? externalTextureView
-          : currentCompose.view;
+      entry.shader.kind === 'external'
+        ? externalTextureView
+        : currentCompose.view;
     const bindGroup = this.device.createBindGroup({
       label: `vj-layer-bind-group-${entry.layer.id}`,
       layout: this.layerBindGroupLayout,

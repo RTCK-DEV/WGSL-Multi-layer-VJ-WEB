@@ -1,6 +1,6 @@
 # WGSL Multi-layer VJ
 
-[GLSL-Multi-layer-VJ-WEB](https://github.com/RTCK-reina/GLSL-Multi-layer-VJ-WEB) の後継。
+[GLSL-Multi-layer-VJ-WEB](https://github.com/RTCK-DEV/GLSL-Multi-layer-VJ-WEB) の後継。
 Three.js/GLSLベースの旧アプリを WebGPU(WGSL) + TypeScript + Svelte 5 でフルリライトしたもの。
 シェーダーがGLSLからWGSLに変わったため、旧リポジトリとは別プロジェクトとして独立させています。
 

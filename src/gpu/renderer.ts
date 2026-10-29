@@ -27,6 +27,8 @@ export interface RendererOptions {
   /** ライブコーディングDSLの継続値モジュレータ。省略時は内部で新規作成する。 */
   modulators?: LiveModulatorRegistry;
   onError?: (error: unknown) => void;
+  /** クラッシュには至らないが利用者に伝えるべき警告(例: 変調の自動停止)。 */
+  onWarning?: (message: string) => void;
   thumbnailIntervalMs?: number;
 }
 
@@ -168,6 +170,7 @@ export class Renderer implements RendererFacade {
       texturePool: this.texturePool,
       modulators: this.modulators,
       onPipelineError: (_shaderKey, error) => this.reportError(error),
+      onModulatorError: message => this.options.onWarning?.(message),
     });
     this.stats = { ...this.stats, gpuTimingAvailable: device.features.has('timestamp-query') };
     if (this.canvas) {
@@ -281,11 +284,17 @@ export class Renderer implements RendererFacade {
       );
     }
     if (this.outputCanvasContext) {
-      this.compositor.renderFrameToTarget(
-        frameResult,
-        this.outputCanvasContext.getCurrentTexture().createView(),
-        this.state.blackout,
-      );
+      // ポップアップがネイティブの閉じるボタンで閉じられると、こちらの検出が
+      // 'pagehide'/'unload' より先に来ることがある(短間隔ポーリングで確認済み)。
+      // 破棄済みの canvas への描画は例外になり得るので、フレームを静かに諦めて
+      // 出力先をクリアする(全体エラーとしてログ/トースト表示はしない)。
+      try {
+        const outputView = this.outputCanvasContext.getCurrentTexture().createView();
+        this.compositor.renderFrameToTarget(frameResult, outputView, this.state.blackout);
+      } catch {
+        this.outputCanvasContext = null;
+        this.outputCanvas = null;
+      }
     }
 
     if (this.state.crossfade.active && crossfadeMix >= 1) {

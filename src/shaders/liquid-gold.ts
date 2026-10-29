@@ -2,7 +2,8 @@ import type { ShaderModuleDef } from '../core/types';
 
 const wgsl = `
 fn shade(uv: vec2f, frag: vec2f) -> vec4f {
-  let st = (frag * 2.0 - G.resolution.xy) / G.resolution.y;
+  // Builder frag is already clip/NDC space (-1..1), so only aspect-scale it.
+  let st = frag * G.resolution.xy / G.resolution.y;
   let q = vec2f(
     fbm2(st * P.zoom + 0.00 * G.time * P.flow),
     fbm2(st * P.zoom + vec2f(1.0))

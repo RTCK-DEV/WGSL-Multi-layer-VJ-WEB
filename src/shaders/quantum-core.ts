@@ -16,7 +16,8 @@ fn quantumCoreMap(p0: vec3f) -> f32 {
   var q = p;
   var d = sdBox3(q, vec3f(1.0));
   let s = 1.2;
-  for (var i = 0; i < 3; i = i + 1) {
+  let iterations = i32(clamp(P.detail * 2.0, 1.0, 6.0));
+  for (var i = 0; i < iterations; i = i + 1) {
     q = abs(q) / s;
     q = q - vec3f(0.5);
     let scale = pow(s, f32(i));

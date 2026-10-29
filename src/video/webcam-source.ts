@@ -4,6 +4,18 @@ export class WebcamSource {
   private texture: GPUTexture | null = null;
   private textureWidth = 0;
   private textureHeight = 0;
+  private disconnectHandlers: Array<() => void> = [];
+
+  /** カメラが切断/権限失効/エラーで使えなくなった時に一度だけ呼ばれる。 */
+  onDisconnected(fn: () => void): void {
+    this.disconnectHandlers.push(fn);
+  }
+
+  private handleDisconnect(): void {
+    if (!this.stream) return; // 既にstop済みなら二重発火しない
+    this.stop();
+    for (const fn of this.disconnectHandlers) fn();
+  }
 
   async start(): Promise<void> {
     if (this.stream) {
@@ -27,6 +39,10 @@ export class WebcamSource {
       }
       video.remove();
       throw error;
+    }
+
+    for (const track of stream.getTracks()) {
+      track.addEventListener('ended', () => this.handleDisconnect());
     }
 
     this.stream = stream;
@@ -57,11 +73,18 @@ export class WebcamSource {
       this.textureHeight = height;
     }
 
-    device.queue.copyExternalImageToTexture(
-      { source: video },
-      { texture: this.texture },
-      { width, height },
-    );
+    try {
+      device.queue.copyExternalImageToTexture(
+        { source: video },
+        { texture: this.texture },
+        { width, height },
+      );
+    } catch {
+      // トラックが裏で終了しているのに 'ended' がまだ届いていない場合に起こり得る。
+      // 毎フレームここで例外を吐き続けるのを防ぎ、切断として扱う。
+      this.handleDisconnect();
+      return null;
+    }
     return this.texture;
   }
 

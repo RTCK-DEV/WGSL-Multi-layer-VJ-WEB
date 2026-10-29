@@ -6,6 +6,7 @@ import type {
   LayerTiming,
   LiveModulatorRegistry,
   ModulatorContext,
+  ModulatorFn,
   Scene,
   ShaderModuleDef,
 } from '../core/types.js';
@@ -65,9 +66,13 @@ export interface CompositorOptions {
   texturePool: TexturePool;
   modulators: LiveModulatorRegistry;
   onPipelineError?: (shaderKey: string, error: unknown) => void;
+  /** 変調(モジュレータ)が繰り返し失敗し自動停止された際の通知。 */
+  onModulatorError?: (message: string) => void;
 }
 
 const OPACITY_MODULATOR_KEY = '__opacity__';
+/** この回数だけ連続で失敗(例外 or 非有限値)したら、そのモジュレータを自動的に解除する。 */
+const MODULATOR_FAILURE_LIMIT = 3;
 
 function toScalar(value: number | number[]): number {
   return Array.isArray(value) ? (value[0] ?? 0) : value;
@@ -124,6 +129,7 @@ export class Compositor {
   private readonly globalBindGroup: GPUBindGroup;
   private readonly fallbackExternalTexture: GPUTexture;
   private readonly fallbackExternalTextureView: GPUTextureView;
+  private readonly modulatorFailureCounts = new Map<string, number>();
 
   constructor(private readonly device: GPUDevice, private readonly options: CompositorOptions) {
     this.sampler = device.createSampler({
@@ -290,7 +296,13 @@ export class Compositor {
       if (visible.has(entry.layer.id)) {
         const writeIndex: 0 | 1 = readIndex === 0 ? 1 : 0;
         const opacityModulator = this.options.modulators.get(entry.layer.id, OPACITY_MODULATOR_KEY);
-        const opacity = opacityModulator ? clamp01(toScalar(opacityModulator(modCtx))) : entry.layer.opacity;
+        const opacity = opacityModulator
+          ? this.evalModulator(entry.layer.id, entry.layer.name, OPACITY_MODULATOR_KEY, opacityModulator, modCtx, entry.layer.opacity, raw => {
+              const value = clamp01(toScalar(raw));
+              if (!Number.isFinite(value)) throw new Error(`non-finite opacity: ${String(raw)}`);
+              return value;
+            })
+          : entry.layer.opacity;
         this.renderCompose(textures.compose[readIndex], layerTextures.output, textures.compose[writeIndex], opacity, entry.layer.blend);
         readIndex = writeIndex;
       }
@@ -335,6 +347,41 @@ export class Compositor {
     return target;
   }
 
+  /**
+   * ライブモジュレータ関数を安全に評価する。例外を投げる/非有限値を返す状態が
+   * MODULATOR_FAILURE_LIMIT 回連続すると、レンダーループを止めずにそのモジュレータ
+   * 自体を自動解除し、フォールバック値へ切り替える(1本のバグったスクリプトが
+   * ライブ中の描画を毎フレーム劣化させ続けるのを防ぐ)。
+   */
+  private evalModulator<T>(
+    layerId: string,
+    layerName: string,
+    param: string,
+    fn: ModulatorFn,
+    modCtx: ModulatorContext,
+    fallback: T,
+    transform: (raw: number | number[]) => T,
+  ): T {
+    const key = `${layerId}:${param}`;
+    try {
+      const value = transform(fn(modCtx));
+      this.modulatorFailureCounts.delete(key);
+      return value;
+    } catch (error) {
+      const count = (this.modulatorFailureCounts.get(key) ?? 0) + 1;
+      if (count >= MODULATOR_FAILURE_LIMIT) {
+        this.modulatorFailureCounts.delete(key);
+        this.options.modulators.clear(layerId, param);
+        this.options.onModulatorError?.(
+          `${layerName} の ${param} 変調でエラーが繰り返し発生したため自動的に停止しました`,
+        );
+      } else {
+        this.modulatorFailureCounts.set(key, count);
+      }
+      return fallback;
+    }
+  }
+
   private renderLayer(
     entry: RenderLayer,
     textures: LayerTextureSet,
@@ -353,7 +400,15 @@ export class Compositor {
       for (const paramName of Object.keys(entry.shader.params)) {
         const modulator = this.options.modulators.get(entry.layer.id, paramName);
         if (modulator) {
-          state.packer.setParam(paramName, modulator(modCtx));
+          const value = this.evalModulator<number | number[] | undefined>(
+            entry.layer.id, entry.layer.name, paramName, modulator, modCtx, undefined,
+            raw => {
+              const values = Array.isArray(raw) ? raw : [raw];
+              if (values.some(n => !Number.isFinite(n))) throw new Error(`non-finite param value: ${String(raw)}`);
+              return raw;
+            },
+          );
+          if (value !== undefined) state.packer.setParam(paramName, value);
         }
       }
     }
@@ -362,12 +417,14 @@ export class Compositor {
       state.packer.clearDirty();
     }
 
+    // inputTex(sampleInput)は常に「このレイヤーより下の合成結果」。feedbackTex(sampleFeedback,
+    // binding 3で常に別途渡している)と混同しないこと — 'feedback'種別を currentCompose ではなく
+    // textures.feedback にすり替えると、sampleInput/sampleFeedback が同一テクスチャを指すことになり、
+    // フィードバックシェーダーが新規映像を一切取り込めず永久に真っ黒になる。
     const inputTextureView =
-      entry.shader.kind === 'feedback'
-        ? textures.feedback.view
-        : entry.shader.kind === 'external'
-          ? externalTextureView
-          : currentCompose.view;
+      entry.shader.kind === 'external'
+        ? externalTextureView
+        : currentCompose.view;
     const bindGroup = this.device.createBindGroup({
       label: `vj-layer-bind-group-${entry.layer.id}`,
       layout: this.layerBindGroupLayout,
@@ -506,6 +563,15 @@ export class Compositor {
       if (!live.has(layerId)) {
         state.paramBuffer.destroy();
         this.layerStates.delete(layerId);
+      }
+    }
+
+    // モジュレータの連続失敗カウンタも、レイヤーが消えたら一緒に捨てる
+    // (でないと消えたレイヤーのキーがセッション中ずっと残り続ける)。
+    for (const key of this.modulatorFailureCounts.keys()) {
+      const layerId = key.slice(0, key.lastIndexOf(':'));
+      if (!live.has(layerId)) {
+        this.modulatorFailureCounts.delete(key);
       }
     }
   }

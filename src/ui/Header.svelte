@@ -8,6 +8,10 @@
   const p = $derived(project());
 
   function tap() { appEvents.emit('bpm:tap'); }
+  function renameProject(e: Event) {
+    const name = (e.target as HTMLInputElement).value.trim();
+    if (name) dispatch({ type: 'project/rename', name }, { undoable: true });
+  }
   function toggleBlackout() {
     dispatch({ type: 'app/setBlackout', blackout: !p.blackout });
   }
@@ -23,6 +27,7 @@
 
 <header class="hdr panel">
   <div class="brand mono">VJ<span class="accent">·</span>GPU</div>
+  <input class="projname" value={p.name} title="プロジェクト名(クリックして変更)" onchange={renameProject} />
 
   <div class="group">
     <span class="microlabel">BPM</span>
@@ -45,8 +50,8 @@
   <div class="spacer"></div>
 
   <div class="group">
-    <button class="btn" onclick={undo} title="Undo (⌘Z)">↩</button>
-    <button class="btn" onclick={redo} title="Redo (⇧⌘Z)">↪</button>
+    <button class="btn" onclick={undo} title="Undo (⌘Z)" aria-label="undo">↩</button>
+    <button class="btn" onclick={redo} title="Redo (⇧⌘Z)" aria-label="redo">↪</button>
   </div>
 
   <button
@@ -75,8 +80,15 @@
     flex-direction: row; align-items: center;
     gap: 14px; padding: 0 12px;
   }
-  .brand { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; }
+  .brand { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; flex: none; }
   .accent { color: var(--acc); }
+  .projname {
+    font: inherit; font-size: 12px; color: var(--tx-3);
+    background: none; border: none; padding: 4px 6px; border-radius: var(--radius-sm);
+    width: 160px; min-width: 0;
+  }
+  .projname:hover { background: var(--bg-2); color: var(--tx-2); }
+  .projname:focus { outline: none; background: var(--bg-2); color: var(--acc); }
   .group { display: flex; align-items: center; gap: 6px; }
   .spacer { flex: 1; }
   .bpm { font-size: 15px; min-width: 52px; text-align: right; transition: color .05s; }

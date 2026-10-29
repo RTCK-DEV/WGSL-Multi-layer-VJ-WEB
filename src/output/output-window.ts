@@ -50,12 +50,15 @@ export function openOutputWindow(width: number, height: number): OutputWindowHan
     }
   });
 
+  // 短めの間隔でポーリングする: ネイティブの閉じるボタンで閉じられた場合、
+  // 'pagehide'/'unload' がすぐに届かないブラウザがあり、その間 renderer が
+  // 破棄済みの canvas に対して毎フレーム描画を試みてエラーを吐き続けてしまう。
   const pollId = window.setInterval(() => {
     if (!popup || popup.closed) {
       window.clearInterval(pollId);
       notifyClosed();
     }
-  }, 500);
+  }, 120);
 
   return {
     canvas,

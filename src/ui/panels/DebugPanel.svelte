@@ -11,7 +11,7 @@
     <div class="panel-head">
       <span class="microlabel">Debug</span>
       <span class="spacer"></span>
-      <button class="btn" onclick={() => (modals.debugPanel = false)}>×</button>
+      <button class="btn" onclick={() => (modals.debugPanel = false)} title="Close" aria-label="close debug panel">×</button>
     </div>
     <div class="body">
       <div class="row"><span>FPS</span><span class="mono">{live.fps}</span></div>

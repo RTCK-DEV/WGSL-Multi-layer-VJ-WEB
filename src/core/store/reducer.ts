@@ -153,6 +153,12 @@ export function reduceProject(
       return;
     }
 
+    case 'layer/rename': {
+      const layer = findLayer(state, cmd.sceneId, cmd.layerId);
+      if (layer) layer.name = cmd.name;
+      return;
+    }
+
     case 'layer/setBlend': {
       const layer = findLayer(state, cmd.sceneId, cmd.layerId);
       if (layer) layer.blend = cmd.blend;

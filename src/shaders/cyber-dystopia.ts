@@ -2,12 +2,13 @@ import type { ShaderModuleDef } from '../core/types';
 
 const wgsl = `
 fn cyberDystopiaMap(p: vec3f) -> f32 {
+  let spacing = 6.0 / P.density;
   let q = vec3f(
-    modf(p.x, 2.0) - 1.0,
+    modf(p.x, spacing) - spacing * 0.5,
     p.y,
-    modf(p.z + G.time * 5.0, 4.0) - 2.0
+    modf(p.z + G.time * 5.0, spacing * 2.0) - spacing
   );
-  let id = floor(vec2f(p.x / 2.0, (p.z + G.time * 5.0) / 4.0));
+  let id = floor(vec2f(p.x / spacing, (p.z + G.time * 5.0) / (spacing * 2.0)));
   var h = sin(id.x * 12.3 + id.y * 4.5) * P.height;
   if (h > 0.0) {
     h = h + G.bass * 2.0;

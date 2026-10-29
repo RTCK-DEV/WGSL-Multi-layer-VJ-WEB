@@ -85,4 +85,28 @@ describe('createStore', () => {
     store.undo();
     expect(store.getState().scenes[0]?.layers).toHaveLength(0);
   });
+
+  it('renames a layer and the project, and can undo both', () => {
+    const initial = createInitialProject();
+    const sceneId = initial.scenes[0]?.id;
+    expect(sceneId).toBeDefined();
+
+    const store = createStore(initial, {
+      resolveShaderDefaults: shaderKey => ({ name: shaderKey, params: {} }),
+    });
+
+    store.dispatch({ type: 'layer/add', sceneId: sceneId!, shaderKey: 'plasma' }, { undoable: true });
+    const layerId = store.getState().scenes[0]?.layers[0]?.id;
+    expect(layerId).toBeDefined();
+
+    store.dispatch({ type: 'layer/rename', sceneId: sceneId!, layerId: layerId!, name: 'My Layer' }, { undoable: true });
+    expect(store.getState().scenes[0]?.layers[0]?.name).toBe('My Layer');
+    store.undo();
+    expect(store.getState().scenes[0]?.layers[0]?.name).toBe('plasma');
+
+    store.dispatch({ type: 'project/rename', name: 'My Project' }, { undoable: true });
+    expect(store.getState().name).toBe('My Project');
+    store.undo();
+    expect(store.getState().name).not.toBe('My Project');
+  });
 });

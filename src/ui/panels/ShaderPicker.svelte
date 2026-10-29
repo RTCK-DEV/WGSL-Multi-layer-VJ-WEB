@@ -29,7 +29,7 @@
     <div class="panel-head">
       <span class="microlabel">Add Layer — Shader</span>
       <span class="spacer"></span>
-      <button class="btn" onclick={onclose}>ESC</button>
+      <button class="btn" onclick={onclose} title="Close (Esc)" aria-label="close">ESC</button>
     </div>
     <div class="grid-wrap">
       {#each groups as [cat, items] (cat)}
